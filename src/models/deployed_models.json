@@ -1,0 +1,215 @@
+{
+  "generated_at": "2026-04-02T19:53:58.610248Z",
+  "total_deployments": 18,
+  "deployments": [
+    {
+      "name": "gpt-4.1",
+      "type": "ModelDeployment",
+      "model_name": "gpt-4.1",
+      "model_version": "2025-04-14",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "chat_completion": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "grok-4",
+      "type": "ModelDeployment",
+      "model_name": "grok-4",
+      "model_version": "1",
+      "model_publisher": "xAI",
+      "capabilities": {
+        "chat_completion": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-5.1-codex",
+      "type": "ModelDeployment",
+      "model_name": "gpt-5.1-codex",
+      "model_version": "2025-11-13",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "chat_completion": "false"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-5.1",
+      "type": "ModelDeployment",
+      "model_name": "gpt-5.1",
+      "model_version": "2025-11-13",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "chat_completion": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 150}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "Mistral-Large-3",
+      "type": "ModelDeployment",
+      "model_name": "Mistral-Large-3",
+      "model_version": "1",
+      "model_publisher": "Mistral AI",
+      "capabilities": {
+        "chat_completion": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-5.2",
+      "type": "ModelDeployment",
+      "model_name": "gpt-5.2",
+      "model_version": "2025-12-11",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "chat_completion": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-5.2-chat",
+      "type": "ModelDeployment",
+      "model_name": "gpt-5.2-chat",
+      "model_version": "2025-12-11",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "chat_completion": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-5-pro",
+      "type": "ModelDeployment",
+      "model_name": "gpt-5-pro",
+      "model_version": "2025-10-06",
+      "model_publisher": "OpenAI",
+      "capabilities": {},
+      "sku": "{'name': 'GlobalStandard', 'capacity': 80}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "DeepSeek-V3.2",
+      "type": "ModelDeployment",
+      "model_name": "DeepSeek-V3.2",
+      "model_version": "1",
+      "model_publisher": "DeepSeek",
+      "capabilities": {
+        "chat_completion": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-5.2-codex",
+      "type": "ModelDeployment",
+      "model_name": "gpt-5.2-codex",
+      "model_version": "2026-01-14",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "chat_completion": "false"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "sora-2",
+      "type": "ModelDeployment",
+      "model_name": "sora-2",
+      "model_version": "2025-10-06",
+      "model_publisher": "OpenAI",
+      "capabilities": {},
+      "sku": "{'name': 'GlobalStandard', 'capacity': 50}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-image-1",
+      "type": "ModelDeployment",
+      "model_name": "gpt-image-1",
+      "model_version": "2025-04-15",
+      "model_publisher": "OpenAI",
+      "capabilities": {},
+      "sku": "{'name': 'GlobalStandard', 'capacity': 3}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "text-embedding-ada-002",
+      "type": "ModelDeployment",
+      "model_name": "text-embedding-ada-002",
+      "model_version": "2",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "embeddings": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 250}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-5.3-codex",
+      "type": "ModelDeployment",
+      "model_name": "gpt-5.3-codex",
+      "model_version": "2026-02-24",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "chat_completion": "false"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "Kimi-K2.5",
+      "type": "ModelDeployment",
+      "model_name": "Kimi-K2.5",
+      "model_version": "1",
+      "model_publisher": "MoonshotAI",
+      "capabilities": {
+        "chat_completion": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 50}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-audio-1.5",
+      "type": "ModelDeployment",
+      "model_name": "gpt-audio-1.5",
+      "model_version": "2026-02-23",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "chat_completion": "true",
+        "completion": "false"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 15000}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "gpt-5.4",
+      "type": "ModelDeployment",
+      "model_name": "gpt-5.4",
+      "model_version": "2026-03-05",
+      "model_publisher": "OpenAI",
+      "capabilities": {
+        "chat_completion": "true"
+      },
+      "sku": "{'name': 'GlobalStandard', 'capacity': 500}",
+      "connection_name": "N/A"
+    },
+    {
+      "name": "FLUX.2-flex",
+      "type": "ModelDeployment",
+      "model_name": "FLUX.2-flex",
+      "model_version": "1",
+      "model_publisher": "Black Forest Labs",
+      "capabilities": {},
+      "sku": "{'name': 'GlobalStandard', 'capacity': 4}",
+      "connection_name": "N/A"
+    }
+  ]
+}
