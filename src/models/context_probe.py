@@ -33,6 +33,8 @@ Prerequisites
     AZURE_AI_PROJECT_ENDPOINT set in config.env
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import csv
@@ -43,7 +45,7 @@ import argparse
 import logging
 from datetime import datetime, UTC
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 
@@ -63,13 +65,70 @@ try:
 except ImportError:
     _TIKTOKEN_AVAILABLE = False
 
+# ── Module metadata ───────────────────────────────────────────────────────────
+__version__ = "1.0.0"
+__all__ = [
+    "ProbeResult",
+    "send_probe",
+    "build_prompt",
+    "count_tokens",
+    "token_calculator",
+    "print_token_report",
+    "binary_search_context_limit",
+    "milestone_probe",
+    "save_results",
+    "print_summary",
+]
+
 # ── Logging ───────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%H:%M:%S",
-    level=logging.INFO,
-)
 log = logging.getLogger(__name__)
+_LOG_FORMAT = "%(asctime)s  %(levelname)-8s  %(name)s  %(message)s"
+_LOG_DATE_FMT = "%H:%M:%S"
+
+
+def _configure_logging(
+    level: str = "INFO",
+    log_file: Path | None = None,
+) -> None:
+    """Configure root logger with a console handler and an optional file handler.
+
+    Parameters
+    ----------
+    level:
+        One of ``DEBUG``, ``INFO``, ``WARNING``, ``ERROR`` (case-insensitive).
+    log_file:
+        When provided, log records are also written to this path.  Parent
+        directories are created automatically.
+    """
+    numeric_level = getattr(logging, level.upper(), logging.INFO)
+    root = logging.getLogger()
+    root.setLevel(numeric_level)
+
+    # Remove existing handlers to avoid duplicated output on re-invocation.
+    root.handlers.clear()
+
+    formatter = logging.Formatter(fmt=_LOG_FORMAT, datefmt=_LOG_DATE_FMT)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(numeric_level)
+    console_handler.setFormatter(formatter)
+    root.addHandler(console_handler)
+
+    if log_file is not None:
+        try:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            file_handler = logging.FileHandler(log_file, encoding="utf-8")
+            file_handler.setLevel(numeric_level)
+            file_handler.setFormatter(formatter)
+            root.addHandler(file_handler)
+            log.debug("File logging enabled → %s", log_file)
+        except OSError as exc:
+            log.warning("Could not open log file %s: %s", log_file, exc)
+
+
+# Bootstrap with defaults so callers that import this module get sensible output.
+_configure_logging()
+
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 # Well-known context-window sizes to test during the binary search.
@@ -97,16 +156,22 @@ _FILLER_SENTENCE = "The quick brown fox jumps over the lazy dog near the riverba
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _get_encoding(model: str):
-    """Return a tiktoken encoding for *model*, falling back to cl100k_base."""
+def _get_encoding(model: str) -> Any | None:
+    """Return a tiktoken encoding for *model*, falling back to cl100k_base.
+
+    Returns ``None`` when tiktoken is not installed or the encoding cannot be
+    resolved.
+    """
     if not _TIKTOKEN_AVAILABLE:
         return None
     try:
         return tiktoken.encoding_for_model(model)
     except KeyError:
+        log.debug("No tiktoken encoding for '%s'; falling back to cl100k_base.", model)
         try:
             return tiktoken.get_encoding("cl100k_base")
-        except Exception:
+        except Exception as exc:  # pragma: no cover
+            log.warning("tiktoken fallback encoding unavailable: %s", exc)
             return None
 
 
@@ -366,7 +431,13 @@ def send_probe(openai_client, deployment: str, token_target: int) -> ProbeResult
 
     except Exception as exc:
         latency = time.perf_counter() - t0
-        log.warning("  ❌  %s  %.1f s", str(exc)[:120], latency)
+        log.exception(
+            "Unexpected error during probe of '%s' at %d tokens (%.1f s): %s",
+            deployment,
+            token_target,
+            latency,
+            exc,
+        )
         return ProbeResult(
             tokens_requested=token_target,
             tokens_actual=actual_tokens,
@@ -526,7 +597,18 @@ def save_results(
     estimated_limit: int,
     output_dir: Path,
 ) -> None:
-    """Write probe results to JSON and CSV files."""
+    """Write probe results to JSON and CSV files.
+
+    The *output_dir* is created automatically if it does not exist.
+    Both the JSON and CSV writes are guarded individually so a failure in one
+    does not prevent the other from completing.
+    """
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        log.error("Cannot create output directory %s: %s", output_dir, exc)
+        return
+
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     stem = f"probe_{deployment}_{ts}"
 
@@ -538,16 +620,22 @@ def save_results(
     }
 
     json_path = output_dir / f"{stem}.json"
-    json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    log.info("JSON results → %s", json_path)
+    try:
+        json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        log.info("JSON results → %s", json_path)
+    except OSError as exc:
+        log.error("Failed to write JSON results to %s: %s", json_path, exc)
 
     csv_path = output_dir / f"{stem}.csv"
-    fieldnames = list(ProbeResult(0, 0, False, None, None, 0).to_dict().keys())
-    with csv_path.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(r.to_dict() for r in results)
-    log.info("CSV  results → %s", csv_path)
+    try:
+        fieldnames = list(ProbeResult(0, 0, False, None, None, 0).to_dict().keys())
+        with csv_path.open("w", newline="", encoding="utf-8") as fh:
+            writer = csv.DictWriter(fh, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(r.to_dict() for r in results)
+        log.info("CSV  results → %s", csv_path)
+    except OSError as exc:
+        log.error("Failed to write CSV results to %s: %s", csv_path, exc)
 
 
 def print_summary(results: list[ProbeResult], deployment: str, limit: int) -> None:
@@ -599,16 +687,17 @@ def print_summary(results: list[ProbeResult], deployment: str, limit: int) -> No
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        description="Probe a Foundry deployment's context-window limit."
+    parser = argparse.ArgumentParser(
+        description="Probe a Foundry deployment's context-window limit.",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
-    p.add_argument(
+    parser.add_argument(
         "--deployment",
         "-d",
         default=os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME", ""),
         help="Deployment name to probe  (default: AZURE_AI_MODEL_DEPLOYMENT_NAME)",
     )
-    p.add_argument(
+    parser.add_argument(
         "--mode",
         "-m",
         choices=["binary", "milestone", "single"],
@@ -619,45 +708,53 @@ def parse_args() -> argparse.Namespace:
             "single   – send exactly --tokens tokens and exit"
         ),
     )
-    p.add_argument(
+    parser.add_argument(
         "--tokens",
         "-t",
         type=int,
         default=128_000,
         help="Token count for --mode single  (default: 128000)",
     )
-    p.add_argument(
+    parser.add_argument(
         "--min-tokens",
         type=int,
         default=1_000,
         help="Lower bound for binary search  (default: 1000)",
     )
-    p.add_argument(
+    parser.add_argument(
         "--max-tokens",
         type=int,
         default=1_048_576,
         help="Upper bound for binary / milestone search  (default: 1 048 576)",
     )
-    p.add_argument(
+    parser.add_argument(
         "--tolerance",
         type=int,
         default=4_096,
         help="Binary-search stops when high−low ≤ tolerance  (default: 4096)",
     )
-    p.add_argument(
+    parser.add_argument(
         "--calc",
         "-c",
         metavar="TEXT",
         help="Run the token calculator on TEXT and exit (no API calls).",
     )
-    p.add_argument(
+    parser.add_argument(
         "--output-dir",
         "-o",
         type=Path,
         default=Path(__file__).parent,
         help="Directory for result files  (default: script directory)",
     )
-    return p.parse_args()
+    parser.add_argument(
+        "--log-level",
+        "-l",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        metavar="LEVEL",
+        help="Logging verbosity: DEBUG | INFO | WARNING | ERROR  (default: INFO)",
+    )
+    return parser.parse_args()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -668,13 +765,22 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    # ── Configure logging (level + optional file handler) ─────────────────
+    log_file = (
+        args.output_dir
+        / f"context_probe_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.log"
+        if not args.calc
+        else None
+    )
+    _configure_logging(level=args.log_level, log_file=log_file)
+
     # ── Token calculator shortcut (no API needed) ─────────────────────────
     if args.calc:
         model = args.deployment or "gpt-4"
         print_token_report(args.calc, model)
         sys.exit(0)
 
-    # ── Validate deployment ───────────────────────────────────────────────
+    # ── Validate configuration ────────────────────────────────────────────
     if not args.deployment:
         log.error(
             "No deployment specified.  Set AZURE_AI_MODEL_DEPLOYMENT_NAME in "
@@ -684,47 +790,77 @@ def main() -> None:
 
     endpoint = os.environ.get("AZURE_AI_PROJECT_ENDPOINT", "")
     if not endpoint:
-        log.error("AZURE_AI_PROJECT_ENDPOINT is not set.")
+        log.error(
+            "AZURE_AI_PROJECT_ENDPOINT is not set in config.env or the environment."
+        )
         sys.exit(1)
 
     log.info("Endpoint   : %s", endpoint)
     log.info("Deployment : %s", args.deployment)
     log.info("Mode       : %s", args.mode)
+    log.debug("Output dir : %s", args.output_dir)
 
-    credential = DefaultAzureCredential()
+    # ── Authenticate ──────────────────────────────────────────────────────
+    try:
+        credential = DefaultAzureCredential()
+    except Exception as exc:
+        log.exception("Failed to create Azure credential: %s", exc)
+        sys.exit(1)
 
-    with AIProjectClient(endpoint=endpoint, credential=credential) as project_client:
-        with project_client.get_openai_client() as openai_client:
+    # ── Run probe ─────────────────────────────────────────────────────────
+    try:
+        with AIProjectClient(
+            endpoint=endpoint, credential=credential
+        ) as project_client:
+            with project_client.get_openai_client() as openai_client:
 
-            # ── Single-shot mode ──────────────────────────────────────────
-            if args.mode == "single":
-                prompt = build_prompt(args.tokens, args.deployment)
-                print_token_report(prompt, args.deployment)
-                r = send_probe(openai_client, args.deployment, args.tokens)
-                results = [r]
-                estimated_limit = args.tokens if r.success else 0
+                # ── Single-shot mode ──────────────────────────────────────
+                if args.mode == "single":
+                    prompt = build_prompt(args.tokens, args.deployment)
+                    print_token_report(prompt, args.deployment)
+                    r = send_probe(openai_client, args.deployment, args.tokens)
+                    results = [r]
+                    estimated_limit = args.tokens if r.success else 0
 
-            # ── Milestone mode (64 k increments) ─────────────────────────
-            elif args.mode == "milestone":
-                estimated_limit, results = milestone_probe(
-                    openai_client,
-                    args.deployment,
-                    step=64_000,
-                    max_tokens=args.max_tokens,
-                )
+                # ── Milestone mode (64 k increments) ─────────────────────
+                elif args.mode == "milestone":
+                    estimated_limit, results = milestone_probe(
+                        openai_client,
+                        args.deployment,
+                        step=64_000,
+                        max_tokens=args.max_tokens,
+                    )
 
-            # ── Binary-search mode ────────────────────────────────────────
-            else:
-                estimated_limit, results = binary_search_context_limit(
-                    openai_client,
-                    args.deployment,
-                    low=args.min_tokens,
-                    high=args.max_tokens,
-                    tolerance=args.tolerance,
-                )
+                # ── Binary-search mode ────────────────────────────────────
+                else:
+                    estimated_limit, results = binary_search_context_limit(
+                        openai_client,
+                        args.deployment,
+                        low=args.min_tokens,
+                        high=args.max_tokens,
+                        tolerance=args.tolerance,
+                    )
 
-            print_summary(results, args.deployment, estimated_limit)
-            save_results(results, args.deployment, estimated_limit, args.output_dir)
+                print_summary(results, args.deployment, estimated_limit)
+                save_results(results, args.deployment, estimated_limit, args.output_dir)
+
+    except KeyboardInterrupt:
+        log.warning(
+            "Probe interrupted by user (Ctrl-C).  Partial results were not saved."
+        )
+        sys.exit(130)
+
+    except HttpResponseError as exc:
+        log.error(
+            "Azure API error (HTTP %s): %s",
+            exc.status_code,
+            exc.message or str(exc),
+        )
+        sys.exit(1)
+
+    except Exception as exc:
+        log.exception("Unexpected error: %s", exc)
+        sys.exit(1)
 
     log.info("Done.")
 
